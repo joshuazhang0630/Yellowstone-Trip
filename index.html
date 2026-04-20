@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>14 天黄石 · 大提顿 · 西雅图 互动地图</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    color: #2d3748;
+  }
+
+  /* Desktop layout */
+  #wrap { display: flex; height: 100vh; }
+  #map { flex: 1; min-width: 0; }
+  #sidebar {
+    width: 380px; flex-shrink: 0;
+    overflow-y: auto;
+    background: #f7f7f2;
+    border-left: 1px solid #d6d3c4;
+    padding: 18px 18px 80px 18px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  h1 { font-size: 18px; margin-bottom: 4px; color: #2d3e2d; }
+  .subtitle { font-size: 12px; color: #888; margin-bottom: 14px; }
+  h2 { font-size: 13px; margin-top: 16px; margin-bottom: 8px; color: #2d3e2d; font-weight: 600;
+       text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .controls { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  .controls button {
+    font-size: 12px; padding: 6px 10px;
+    border: 1px solid #b5b09a; border-radius: 5px;
+    background: white; cursor: pointer; color: #444;
+  }
+  .controls button:hover { background: #eee; }
+
+  .day-card {
+    border: 1px solid #d6d3c4; border-radius: 8px;
+    background: white; margin-bottom: 8px; overflow: hidden;
+    transition: box-shadow 0.15s;
+  }
+  .day-card.active { box-shadow: 0 0 0 2px #38a169; }
+  .day-header {
+    padding: 10px 12px; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 600; color: #2d3748;
+    user-select: none;
+  }
+  .day-header input[type=checkbox] { cursor: pointer; accent-color: #38a169; }
+  .day-swatch {
+    width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+    border: 1px solid rgba(0,0,0,0.1);
+  }
+  .day-num { font-size: 11px; color: #999; margin-right: 4px; font-weight: 500; }
+  .day-title { flex: 1; line-height: 1.3; }
+  .day-zoom {
+    font-size: 10px; padding: 3px 7px; border: 1px solid #ccc;
+    background: #f5f5f0; border-radius: 3px; color: #666; cursor: pointer;
+  }
+  .day-zoom:hover { background: #ddd; color: #333; }
+  .day-body {
+    padding: 0 12px 12px 12px; font-size: 12px; color: #555; line-height: 1.7;
+    display: none;
+  }
+  .day-card.open .day-body { display: block; }
+  .day-body .meta { color: #888; font-size: 11px; margin-bottom: 6px; padding-bottom: 6px;
+                    border-bottom: 1px dashed #e0dcc8; }
+  .day-body .stop {
+    margin: 4px 0; padding-left: 14px; position: relative;
+  }
+  .day-body .stop::before {
+    content: ''; position: absolute; left: 3px; top: 8px;
+    width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+  }
+  .day-body .time { color: #666; font-weight: 600; margin-right: 4px; }
+  .day-body .hotel {
+    margin-top: 8px; padding: 6px 10px; background: #e6f4ea;
+    border-radius: 4px; font-size: 11.5px; color: #2d5a3d;
+  }
+
+  .legend {
+    position: absolute; bottom: 12px; left: 12px;
+    background: rgba(255,255,255,0.96); padding: 8px 12px; border-radius: 6px;
+    font-size: 11px; line-height: 1.7; box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    z-index: 500;
+  }
+  .legend .icon-sample { display: inline-block; width: 12px; height: 12px;
+    border-radius: 50%; margin-right: 5px; vertical-align: middle;
+    border: 1px solid rgba(0,0,0,0.15); }
+
+  .popup-title { font-weight: 600; font-size: 13px; margin-bottom: 3px; color: #2d3e2d; }
+  .popup-sub { font-size: 11.5px; color: #666; line-height: 1.5; }
+  .popup-tag {
+    display: inline-block; font-size: 10px; padding: 1px 6px;
+    border-radius: 10px; margin-right: 4px; color: white;
+  }
+
+  /* Mobile-responsive */
+  @media (max-width: 768px) {
+    #wrap { flex-direction: column; }
+    #map { height: 55vh; flex: 0 0 55vh; }
+    #sidebar {
+      width: 100%; height: 45vh; flex: 0 0 45vh;
+      border-left: none; border-top: 1px solid #d6d3c4;
+      padding: 12px 14px 80px 14px;
+    }
+    .legend { font-size: 10px; padding: 6px 8px; }
+    h1 { font-size: 16px; }
+    .day-header { padding: 9px 10px; font-size: 12.5px; }
+    .day-zoom { font-size: 9px; padding: 2px 6px; }
+    .day-body { padding: 0 10px 10px 10px; font-size: 11.5px; }
+  }
+
+  /* Very narrow phones */
+  @media (max-width: 480px) {
+    #map { height: 50vh; flex: 0 0 50vh; }
+    #sidebar { height: 50vh; flex: 0 0 50vh; }
+    .day-title { font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="map"></div>
+  <div id="sidebar">
+    <h1>14 天大提顿 · 黄石 · 西雅图</h1>
+    <div class="subtitle">方案 B（Snow Lodge 2 晚 + 西黄石 3 晚）· 点日期展开</div>
+
+    <div class="controls">
+      <button onclick="toggleAllRoutes(true)">全部路线</button>
+      <button onclick="toggleAllRoutes(false)">隐藏所有</button>
+      <button onclick="fitAll()">适配全图</button>
+    </div>
+
+    <div id="dayList"></div>
+  </div>
+</div>
+
+<div class="legend">
+  <div><span class="icon-sample" style="background:#2b6cb0;"></span>住宿</div>
+  <div><span class="icon-sample" style="background:#ed8936;"></span>景点</div>
+  <div><span class="icon-sample" style="background:#718096;"></span>城镇 / 园门</div>
+</div>
+
+<script>
+// ========== Hotels ==========
+const hotels = [
+  { name: "盐湖城 Little America Hotel", desc: "5/12、5/13 住", coord: [40.7608, -111.8910] },
+  { name: "Jackson · Parkway Inn", desc: "5/14、5/15 住", coord: [43.4799, -110.7624] },
+  { name: "Old Faithful Snow Lodge", desc: "5/16、5/17 住（园内）", coord: [44.4598, -110.8281] },
+  { name: "West Yellowstone（小镇）", desc: "5/18、5/19、5/20 住：推荐 Kelly Inn / YP Hotel / Explorer Cabins", coord: [44.6621, -111.1041] },
+  { name: "Bozeman · Kimpton Armory", desc: "5/21 住", coord: [45.6770, -111.0429] },
+  { name: "Seattle · Hyatt at Olive 8", desc: "5/22、5/23、5/24 住", coord: [47.6130, -122.3320] },
+];
+
+// ========== Sights / towns / gates ==========
+const sights = [
+  // Salt Lake City 5/13
+  { name: "Temple Square 殿堂广场", desc: "摩门教总部；教堂、花园、管风琴演奏", coord: [40.7708, -111.8919], type: "sight" },
+  { name: "Antelope Island State Park", desc: "开车看野牛 + 盐湖湿地（轻徒步）", coord: [41.0200, -112.2350], type: "sight" },
+
+  // Grand Teton 5/15 南段
+  { name: "Jackson 镇广场（Town Square）", desc: "4 角鹿角拱门；周边餐厅、礼品店", coord: [43.4799, -110.7624], type: "town" },
+  { name: "Craig Thomas 游客中心（Moose）", desc: "大提顿南入口，地图/讲解/洗手间", coord: [43.6591, -110.7175], type: "sight" },
+  { name: "Mormon Row · Moulton Barn", desc: "经典摄影点：老谷仓 + Teton 背景", coord: [43.6631, -110.6677], type: "sight" },
+  { name: "Schwabacher's Landing", desc: "Snake River 河岸倒影，日出最佳", coord: [43.7175, -110.6799], type: "sight" },
+  { name: "Snake River Overlook", desc: "安塞尔·亚当斯同名经典构图", coord: [43.8172, -110.6126], type: "sight" },
+  { name: "Taggart Lake Trailhead", desc: "平缓湖边步道往返 4.8km（2h，可选）", coord: [43.6962, -110.7349], type: "sight" },
+  { name: "Jenny Lake Visitor Center", desc: "湖边观山，可坐游船到对岸（5 月末才开）", coord: [43.7514, -110.7289], type: "sight" },
+  { name: "Signal Mountain Summit", desc: "车可开到顶，俯瞰 Jackson Hole 山谷", coord: [43.8432, -110.6175], type: "sight" },
+
+  // Grand Teton 5/16 北段
+  { name: "Oxbow Bend", desc: "Snake River + Mt Moran 倒影经典点", coord: [43.8617, -110.5517], type: "sight" },
+  { name: "Jackson Lake Lodge", desc: "可进大堂 + 落地窗观景，午餐选项", coord: [43.8866, -110.5786], type: "sight" },
+  { name: "Colter Bay Village", desc: "游客中心 + 湖边步道 + 小店", coord: [43.9060, -110.6432], type: "sight" },
+
+  // Yellowstone gates
+  { name: "黄石 South Entrance 南门", desc: "Teton 北上进园必经", coord: [44.1369, -110.6658], type: "gate" },
+  { name: "黄石 West Entrance 西门", desc: "从西黄石镇进出每日必经", coord: [44.6621, -111.0977], type: "gate" },
+  { name: "黄石 North Entrance 北门 / Gardiner", desc: "Mammoth 附近出园到 Bozeman", coord: [45.0302, -110.7077], type: "gate" },
+  { name: "Gardiner, MT", desc: "北门小镇，午餐点", coord: [45.0305, -110.7044], type: "town" },
+
+  // Yellowstone 5/16 南门入园后
+  { name: "Lewis Falls", desc: "南门后第一景点，车上可看", coord: [44.2811, -110.6369], type: "sight" },
+  { name: "Grant Village", desc: "湖西南岸小村，午餐/加油", coord: [44.3931, -110.5572], type: "sight" },
+  { name: "West Thumb Geyser Basin", desc: "湖畔地热环线（45 分钟步道）", coord: [44.4152, -110.5736], type: "sight" },
+
+  // Yellowstone 5/17 Old Faithful
+  { name: "Old Faithful 老忠实喷泉", desc: "每 90 分钟喷发；Snow Lodge 大堂有预告", coord: [44.4605, -110.8281], type: "sight" },
+  { name: "Upper Geyser Basin 木栈道", desc: "平路 2.5km，清晨人少最佳", coord: [44.4650, -110.8290], type: "sight" },
+  { name: "Grand Prismatic / Midway Geyser Basin", desc: "大彩虹泉，标志性景点", coord: [44.5250, -110.8380], type: "sight" },
+  { name: "Fairy Falls Overlook 观景台", desc: "看大彩虹泉俯瞰（1.5km 坡，父母可放弃）", coord: [44.5187, -110.8331], type: "sight" },
+  { name: "Biscuit Basin", desc: "蓝色温泉池群，平路 800m", coord: [44.4883, -110.8516], type: "sight" },
+  { name: "Black Sand Basin", desc: "彩色泉群，平路 500m", coord: [44.4694, -110.8456], type: "sight" },
+
+  // 5/18 Madison/Norris transfer
+  { name: "Madison Junction", desc: "三路汇合，可野餐午餐", coord: [44.6458, -110.8611], type: "sight" },
+  { name: "Gibbon Falls", desc: "公路边瀑布，车上可看", coord: [44.6552, -110.7678], type: "sight" },
+  { name: "Norris Geyser Basin", desc: "园内最热区，Back Basin 短环 1.5km", coord: [44.7261, -110.7028], type: "sight" },
+  { name: "Artist Paintpots", desc: "泥火山短步道 1km", coord: [44.6908, -110.7372], type: "sight" },
+
+  // 5/19 Canyon
+  { name: "Canyon Village 大峡谷村", desc: "有午餐餐厅 + 游客中心", coord: [44.7356, -110.4975], type: "sight" },
+  { name: "Artist Point（South Rim）", desc: "下瀑最佳观景点", coord: [44.7199, -110.4796], type: "sight" },
+  { name: "Lookout Point（North Rim）", desc: "Lower Falls 正面观", coord: [44.7180, -110.4869], type: "sight" },
+  { name: "Grand View / Inspiration Point", desc: "北缘观景台（可开车到）", coord: [44.7245, -110.4840], type: "sight" },
+
+  // 5/20 Lake / Hayden
+  { name: "Hayden Valley", desc: "野牛 / 熊 / 狼高发区（清晨最佳）", coord: [44.6577, -110.4674], type: "sight" },
+  { name: "Mud Volcano 泥火山", desc: "短停即可", coord: [44.6244, -110.4316], type: "sight" },
+  { name: "Fishing Bridge 游客中心", desc: "展示鸟/熊", coord: [44.5649, -110.3743], type: "sight" },
+  { name: "Lake Yellowstone Hotel", desc: "百年殖民餐厅午餐（需预订）", coord: [44.5521, -110.4001], type: "sight" },
+  { name: "Lake Butte Overlook", desc: "湖面远眺", coord: [44.5444, -110.2928], type: "sight" },
+
+  // 5/21 Mammoth
+  { name: "Mammoth Hot Springs 温泉阶地", desc: "上台可开车、下台需步行", coord: [44.9711, -110.7032], type: "sight" },
+  { name: "Paradise Valley 景观路", desc: "Gardiner 出北门后沿 Yellowstone River 美景", coord: [45.3000, -110.8800], type: "sight" },
+
+  // Bozeman / Seattle
+  { name: "Bozeman Main Street", desc: "小镇主街，博物馆 + 晚餐", coord: [45.6797, -111.0358], type: "town" },
+  { name: "Seattle · Pike Place Market", desc: "5/23 早餐/午餐", coord: [47.6097, -122.3422], type: "sight" },
+  { name: "太空针 Space Needle", desc: "5/23 下午", coord: [47.6205, -122.3493], type: "sight" },
+  { name: "奇胡利玻璃馆", desc: "5/23 下午（与太空针相邻）", coord: [47.6213, -122.3504], type: "sight" },
+  { name: "华盛顿大学 UW", desc: "5/24 上午，樱花 + 图书馆", coord: [47.6554, -122.3083], type: "sight" },
+  { name: "Kerry Park", desc: "5/24 下午，太空针全景最佳拍照点", coord: [47.6294, -122.3599], type: "sight" },
+  { name: "Alki Beach", desc: "5/24 傍晚，海边散步", coord: [47.5760, -122.4104], type: "sight" },
+];
+
+// ========== Daily routes ==========
+const days = [
+  // Day 1 CMH -> SLC (no route; just city pin)
+  { id: "d1", date: "5/12 Tue", title: "CMH ✈️ SLC（抵达盐湖城）",
+    color: "#a0aec0", flight: true,
+    activities: [
+      { t: "下午", d: "CMH 起飞，Delta 或 United 中转" },
+      { t: "傍晚", d: "抵达 SLC，取车，入住 Little America" },
+      { t: "晚餐", d: "Red Iguana 墨西哥菜（推荐）" },
+    ],
+    hotel: "Little America Hotel（$180/晚 × 2 间）"
+  },
+
+  // Day 2 SLC local
+  { id: "d2", date: "5/13 Wed", title: "盐湖城一日",
+    color: "#a0aec0", flight: false, noRoute: true,
+    activities: [
+      { t: "上午", d: "Temple Square 殿堂广场（步行 1.5h）" },
+      { t: "中午", d: "Market Street Grill 午餐" },
+      { t: "下午", d: "Antelope Island State Park（开车 45 分钟单程，看野牛+盐湖）" },
+      { t: "傍晚", d: "回市区晚餐 + 休息" },
+    ],
+    hotel: "Little America Hotel"
+  },
+
+  // Day 3 SLC -> Jackson
+  { id: "d3", date: "5/14 Thu", title: "SLC 🚗 Jackson（~4.5h）",
+    color: "#a0aec0", flight: false, noRoute: true,
+    activities: [
+      { t: "8:00", d: "SLC 出发，I-15 北上" },
+      { t: "11:00", d: "Logan 午餐 / Snake River Overlook" },
+      { t: "14:00", d: "过 Idaho Falls，停脚休息（Snake River 大瀑布 15 分钟）" },
+      { t: "17:00", d: "到 Jackson 镇，入住 Parkway Inn" },
+      { t: "18:30", d: "Town Square 鹿角拱门 + 晚餐（Snake River Grill 或 Local）" },
+    ],
+    hotel: "Jackson · Parkway Inn"
+  },
+
+  // Day 4 5/15 Teton South
+  { id: "d4", date: "5/15 Fri", title: "大提顿南段（住 Jackson 不搬家）",
+    color: "#48bb78",
+    activities: [
+      { t: "8:00", d: "Jackson 酒店早餐出发" },
+      { t: "9:00", d: "Craig Thomas 游客中心（Moose），买大提顿公园地图" },
+      { t: "10:00", d: "Mormon Row · Moulton Barn 经典谷仓摄影" },
+      { t: "11:00", d: "Schwabacher's Landing Snake River 河岸" },
+      { t: "12:30", d: "Dornan's 午餐（露台看 Teton 山）" },
+      { t: "14:00", d: "Jenny Lake 游客中心 + 湖边步道" },
+      { t: "15:30", d: "Taggart Lake 短步道（可选，2h 往返）或直接 Signal Mountain" },
+      { t: "17:00", d: "Signal Mountain Summit（车到顶，俯瞰整个山谷）" },
+      { t: "19:00", d: "回 Jackson 晚餐" },
+    ],
+    path: [
+      [43.4799, -110.7624], // Jackson
+      [43.6591, -110.7175], // Moose VC
+      [43.6631, -110.6677], // Mormon Row
+      [43.7175, -110.6799], // Schwabacher
+      [43.7514, -110.7289], // Jenny Lake
+      [43.6962, -110.7349], // Taggart TH
+      [43.7514, -110.7289], // Jenny (back through)
+      [43.8432, -110.6175], // Signal Mtn
+      [43.4799, -110.7624], // back Jackson
+    ],
+    hotel: "Jackson · Parkway Inn"
+  },
+
+  // Day 5 5/16 Teton North -> YNP
+  { id: "d5", date: "5/16 Sat", title: "大提顿北段 → 黄石南门 → Snow Lodge",
+    color: "#38a169",
+    activities: [
+      { t: "8:00", d: "Jackson 出发北上" },
+      { t: "8:45", d: "Snake River Overlook 停车拍照" },
+      { t: "9:30", d: "Oxbow Bend（Mt Moran 倒影）" },
+      { t: "10:30", d: "Jackson Lake Lodge 大堂 + 露台观山" },
+      { t: "11:30", d: "Colter Bay Village 湖边短走 + 野餐 / 午餐" },
+      { t: "13:00", d: "过黄石 South Entrance" },
+      { t: "13:30", d: "Lewis Falls 路边观瀑" },
+      { t: "14:30", d: "West Thumb Geyser Basin（湖畔地热 45 分钟）" },
+      { t: "15:30", d: "Grant Village 休息 / 加油" },
+      { t: "17:00", d: "到 Old Faithful Snow Lodge 入住" },
+      { t: "18:00-19:00", d: "看老忠实首次喷发（Snow Lodge 大堂看电视预告）" },
+      { t: "19:30", d: "Obsidian Dining Room 晚餐（需提前预订）" },
+    ],
+    path: [
+      [43.4799, -110.7624], // Jackson
+      [43.8172, -110.6126], // Snake River Overlook
+      [43.8617, -110.5517], // Oxbow Bend
+      [43.8866, -110.5786], // Jackson Lake Lodge
+      [43.9060, -110.6432], // Colter Bay
+      [44.0250, -110.6850], // Flagg Ranch
+      [44.1369, -110.6658], // South Entrance
+      [44.2811, -110.6369], // Lewis Falls
+      [44.3931, -110.5572], // Grant Village
+      [44.4152, -110.5736], // West Thumb
+      [44.4600, -110.6790], // main road
+      [44.4605, -110.8281], // Old Faithful / Snow Lodge
+    ],
+    hotel: "Old Faithful Snow Lodge（园内）"
+  },
+
+  // Day 6 5/17 Old Faithful
+  { id: "d6", date: "5/17 Sun", title: "Old Faithful 深度（不搬家）",
+    color: "#d69e2e",
+    activities: [
+      { t: "7:00", d: "早餐 Bear Paw Deli（轻早餐）" },
+      { t: "8:00", d: "Upper Geyser Basin 木栈道（清晨人少 2.5km）" },
+      { t: "10:30", d: "Grand Prismatic / Midway Geyser Basin 主步道" },
+      { t: "11:30", d: "Fairy Falls Overlook 俯瞰角度（父母可车上远观）" },
+      { t: "13:00", d: "回 Snow Lodge 或 Geyser Grill 午餐" },
+      { t: "14:30", d: "Black Sand Basin 环形 500m" },
+      { t: "15:30", d: "Biscuit Basin 环形 800m" },
+      { t: "17:00", d: "回 Snow Lodge 休息" },
+      { t: "19:30", d: "晚餐后夜看老忠实（月光下喷发）" },
+    ],
+    path: [
+      [44.4605, -110.8281], // Snow Lodge
+      [44.4650, -110.8290], // Upper Geyser Basin
+      [44.5250, -110.8380], // Grand Prismatic
+      [44.5187, -110.8331], // Fairy Falls
+      [44.5250, -110.8380], // back
+      [44.4694, -110.8456], // Black Sand
+      [44.4883, -110.8516], // Biscuit
+      [44.4605, -110.8281], // back Snow Lodge
+    ],
+    hotel: "Old Faithful Snow Lodge（园内）"
+  },
+
+  // Day 7 5/18 -> West YNP
+  { id: "d7", date: "5/18 Mon", title: "Snow Lodge 退房 → Norris → 西黄石",
+    color: "#e53e3e",
+    activities: [
+      { t: "9:30", d: "Snow Lodge 退房" },
+      { t: "10:30", d: "Midway Geyser Basin 再看一眼 Grand Prismatic" },
+      { t: "12:00", d: "Madison Junction 野餐午餐" },
+      { t: "13:30", d: "Norris Geyser Basin，走 Back Basin 短环 1.5km" },
+      { t: "15:00", d: "Artist Paintpots 泥火山" },
+      { t: "16:00", d: "Gibbon Falls 车上观" },
+      { t: "17:00", d: "经 Madison → West Entrance → 西黄石" },
+      { t: "17:30", d: "入住西黄石酒店" },
+      { t: "19:00", d: "晚餐 Wild West Pizzeria / Madison Crossing Lounge" },
+    ],
+    path: [
+      [44.4605, -110.8281], // Snow Lodge
+      [44.5250, -110.8380], // Midway
+      [44.6458, -110.8611], // Madison
+      [44.6552, -110.7678], // Gibbon
+      [44.7261, -110.7028], // Norris
+      [44.6908, -110.7372], // Artist Paintpots
+      [44.6552, -110.7678], // Gibbon
+      [44.6458, -110.8611], // Madison
+      [44.6621, -111.0977], // West Entrance
+      [44.6621, -111.1041], // West Yellowstone
+    ],
+    hotel: "西黄石（Kelly Inn / YP Hotel / Explorer Cabins）"
+  },
+
+  // Day 8 5/19 Canyon
+  { id: "d8", date: "5/19 Tue", title: "西黄石 ↔ 大峡谷 Canyon",
+    color: "#805ad5",
+    activities: [
+      { t: "8:00", d: "西黄石出发" },
+      { t: "9:30", d: "到 Canyon Village" },
+      { t: "10:00", d: "South Rim Drive：Artist Point、Uncle Tom's Point" },
+      { t: "12:00", d: "Canyon Village Lodge Dining Room 午餐" },
+      { t: "13:30", d: "North Rim Drive：Lookout Point、Grand View、Inspiration Point" },
+      { t: "15:30", d: "返程路上 Gibbon Falls 再看" },
+      { t: "17:30", d: "回西黄石" },
+      { t: "19:00", d: "晚餐 Bullwinkle's Saloon BBQ" },
+    ],
+    path: [
+      [44.6621, -111.1041], // West Yellowstone
+      [44.6621, -111.0977], // West Entrance
+      [44.6458, -110.8611], // Madison
+      [44.6552, -110.7678], // Gibbon
+      [44.7261, -110.7028], // Norris
+      [44.7356, -110.4975], // Canyon Village
+      [44.7180, -110.4869], // Lookout Point
+      [44.7199, -110.4796], // Artist Point
+      [44.7245, -110.4840], // Grand View
+      [44.7356, -110.4975], // Canyon
+      [44.7261, -110.7028], // Norris
+      [44.6458, -110.8611], // Madison
+      [44.6621, -111.1041], // West Yellowstone
+    ],
+    hotel: "西黄石"
+  },
+
+  // Day 9 5/20 Lake
+  { id: "d9", date: "5/20 Wed", title: "西黄石 ↔ 湖区 + Hayden Valley",
+    color: "#3182ce",
+    activities: [
+      { t: "7:00", d: "早出发（看清晨动物）" },
+      { t: "8:45", d: "Hayden Valley 野牛 / 熊 / 狼观察" },
+      { t: "10:30", d: "Mud Volcano 泥火山短停" },
+      { t: "11:30", d: "Fishing Bridge 游客中心" },
+      { t: "12:30", d: "Lake Yellowstone Hotel 百年餐厅午餐（需预订）" },
+      { t: "14:30", d: "Lake Butte Overlook 湖面远眺" },
+      { t: "16:00", d: "返程 Canyon → Norris → West" },
+      { t: "18:30", d: "回西黄石" },
+      { t: "19:30", d: "晚餐 Serenity Bistro 意大利菜" },
+    ],
+    path: [
+      [44.6621, -111.1041], // West Yellowstone
+      [44.6458, -110.8611], // Madison
+      [44.7261, -110.7028], // Norris
+      [44.7356, -110.4975], // Canyon
+      [44.6577, -110.4674], // Hayden
+      [44.6244, -110.4316], // Mud Volcano
+      [44.5649, -110.3743], // Fishing Bridge
+      [44.5521, -110.4001], // Lake Hotel
+      [44.5444, -110.2928], // Lake Butte
+      [44.5521, -110.4001], // back
+      [44.5649, -110.3743], // Fishing Bridge
+      [44.6244, -110.4316], // Mud Volcano
+      [44.6577, -110.4674], // Hayden
+      [44.7356, -110.4975], // Canyon
+      [44.7261, -110.7028], // Norris
+      [44.6458, -110.8611], // Madison
+      [44.6621, -111.1041], // West Yellowstone
+    ],
+    hotel: "西黄石"
+  },
+
+  // Day 10 5/21 YNP -> Bozeman
+  { id: "d10", date: "5/21 Thu", title: "西黄石 → Mammoth → 北门 → Bozeman",
+    color: "#2c7a7b",
+    activities: [
+      { t: "8:30", d: "西黄石出发" },
+      { t: "10:00", d: "Mammoth Hot Springs 温泉阶地（上下台）" },
+      { t: "12:00", d: "Mammoth 村午餐" },
+      { t: "13:30", d: "北门出园，经 Gardiner" },
+      { t: "14:30", d: "Paradise Valley 沿 Yellowstone River 景观路" },
+      { t: "17:00", d: "到 Bozeman，入住 Kimpton Armory" },
+      { t: "19:00", d: "Main Street 晚餐（Blackbird Kitchen 推荐）" },
+    ],
+    path: [
+      [44.6621, -111.1041], // West Yellowstone
+      [44.6458, -110.8611], // Madison
+      [44.7261, -110.7028], // Norris
+      [44.8400, -110.7200], // to Mammoth
+      [44.9711, -110.7032], // Mammoth
+      [45.0302, -110.7077], // North Entrance
+      [45.2500, -110.8500], // Paradise Valley
+      [45.5200, -110.9500], // Livingston
+      [45.6770, -111.0429], // Bozeman
+    ],
+    hotel: "Bozeman · Kimpton Armory Hotel"
+  },
+
+  // Day 11 5/22 BZN -> SEA
+  { id: "d11", date: "5/22 Fri", title: "Bozeman ✈️ Seattle",
+    color: "#a0aec0", flight: true,
+    activities: [
+      { t: "8:00", d: "Bozeman 早餐，机场还车" },
+      { t: "10-11:00", d: "BZN → SEA 航班（Alaska/Delta，2h 直飞）" },
+      { t: "14:00", d: "到 Seattle，Hyatt at Olive 8 入住" },
+      { t: "傍晚", d: "步行到 Pike Place 周边吃海鲜" },
+    ],
+    hotel: "Seattle · Hyatt at Olive 8"
+  },
+
+  // Day 12 5/23 Seattle
+  { id: "d12", date: "5/23 Sat", title: "西雅图市区（Pike Place + 太空针）",
+    color: "#a0aec0", noRoute: true,
+    activities: [
+      { t: "9:00", d: "Pike Place Market（原始星巴克 + 鲜鱼飞）" },
+      { t: "11:30", d: "Market 周边海鲜午餐（Pike Place Chowder）" },
+      { t: "14:00", d: "太空针 Space Needle 登顶" },
+      { t: "15:30", d: "奇胡利玻璃馆（与太空针相邻）" },
+      { t: "18:00", d: "晚餐 The Pink Door 意大利菜" },
+    ],
+    hotel: "Seattle · Hyatt at Olive 8"
+  },
+
+  // Day 13 5/24 Seattle
+  { id: "d13", date: "5/24 Sun", title: "西雅图（华大 + Kerry Park + 海边）",
+    color: "#a0aec0", noRoute: true,
+    activities: [
+      { t: "10:00", d: "华盛顿大学 UW 校园 + Suzzallo Library" },
+      { t: "12:30", d: "大学区午餐" },
+      { t: "14:30", d: "Kerry Park 拍太空针全景" },
+      { t: "16:00", d: "Alki Beach 海边散步" },
+      { t: "19:00", d: "晚餐 Shiro's Sushi 或 Canlis（告别晚宴）" },
+    ],
+    hotel: "Seattle · Hyatt at Olive 8"
+  },
+
+  // Day 14 5/25 fly home
+  { id: "d14", date: "5/25 Mon", title: "SEA ✈️ 中国（PEK / PVG）",
+    color: "#a0aec0", flight: true,
+    activities: [
+      { t: "早晨", d: "退房，机场还车" },
+      { t: "白天", d: "SEA → PEK / PVG 直飞（~13h）" },
+      { t: "次日", d: "抵达中国" },
+    ],
+    hotel: "—"
+  },
+];
+
+// ========== Build map ==========
+const map = L.map('map', { zoomControl: true, tap: true }).setView([44.55, -110.7], 8);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 18,
+  attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+// Yellowstone boundary
+const ynpBounds = [[44.1319, -111.0574], [45.1055, -109.8100]];
+L.rectangle(ynpBounds, {
+  color: "#38a169", weight: 1, fill: false, dashArray: "4 4", opacity: 0.45
+}).addTo(map).bindTooltip("黄石国家公园", { permanent: false, sticky: true });
+
+// Grand Teton boundary (approximation)
+const tetonBounds = [[43.5800, -110.8400], [44.1400, -110.4000]];
+L.rectangle(tetonBounds, {
+  color: "#d69e2e", weight: 1, fill: false, dashArray: "4 4", opacity: 0.45
+}).addTo(map).bindTooltip("大提顿国家公园", { permanent: false, sticky: true });
+
+// Markers
+const hotelIcon = L.divIcon({
+  html: '<div style="background:#2b6cb0;color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.35);">🛏</div>',
+  className: '', iconSize: [28, 28], iconAnchor: [14, 14]
+});
+hotels.forEach(h => {
+  L.marker(h.coord, { icon: hotelIcon })
+   .addTo(map)
+   .bindPopup(`<div class="popup-title">🛏️ ${h.name}</div><div class="popup-sub">${h.desc}</div>`);
+});
+
+const sightIcon = L.divIcon({
+  html: '<div style="background:#ed8936;width:11px;height:11px;border-radius:50%;border:2px solid white;box-shadow:0 1px 2px rgba(0,0,0,0.35);"></div>',
+  className: '', iconSize: [11, 11], iconAnchor: [5.5, 5.5]
+});
+const gateIcon = L.divIcon({
+  html: '<div style="background:#4a5568;color:white;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;border:2px solid white;">🚪</div>',
+  className: '', iconSize: [20, 20], iconAnchor: [10, 10]
+});
+const townIcon = L.divIcon({
+  html: '<div style="background:#718096;color:white;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;border:2px solid white;">🏘</div>',
+  className: '', iconSize: [20, 20], iconAnchor: [10, 10]
+});
+
+sights.forEach(s => {
+  let icon = sightIcon;
+  if (s.type === "gate") icon = gateIcon;
+  else if (s.type === "town") icon = townIcon;
+  L.marker(s.coord, { icon: icon })
+   .addTo(map)
+   .bindPopup(`<div class="popup-title">${s.name}</div><div class="popup-sub">${s.desc || ""}</div>`);
+});
+
+// Daily routes
+const dayLayers = {};
+days.forEach(d => {
+  if (d.path && d.path.length > 0) {
+    const line = L.polyline(d.path, {
+      color: d.color, weight: 4.5, opacity: 0.85,
+      lineCap: "round", lineJoin: "round"
+    });
+    dayLayers[d.id] = line;
+    line.addTo(map);
+  }
+});
+
+// ========== Sidebar ==========
+const dayList = document.getElementById("dayList");
+days.forEach((d, idx) => {
+  const card = document.createElement("div");
+  card.className = "day-card";
+  card.id = "card-" + d.id;
+
+  const hasPath = d.path && d.path.length > 0;
+
+  card.innerHTML = `
+    <div class="day-header" data-day="${d.id}">
+      <input type="checkbox" ${hasPath ? 'checked' : ''} ${hasPath ? '' : 'disabled'} data-day="${d.id}" onclick="event.stopPropagation()">
+      <span class="day-swatch" style="background:${d.color}"></span>
+      <span class="day-num">Day ${idx + 1}</span>
+      <span class="day-title">${d.date} · ${d.title}</span>
+      ${hasPath ? `<span class="day-zoom" data-day="${d.id}">定位</span>` : ''}
+    </div>
+    <div class="day-body">
+      ${d.activities.map(a => `<div class="stop" style="color:${d.color}"><span class="time">${a.t}</span><span style="color:#555">${a.d}</span></div>`).join("")}
+      ${d.hotel ? `<div class="hotel">🛏️ 住宿：${d.hotel}</div>` : ''}
+    </div>`;
+
+  dayList.appendChild(card);
+});
+
+// Expand/collapse on card header click
+document.querySelectorAll('.day-header').forEach(h => {
+  h.addEventListener('click', e => {
+    if (e.target.tagName === 'INPUT' || e.target.classList.contains('day-zoom')) return;
+    const card = h.parentElement;
+    card.classList.toggle('open');
+  });
+});
+
+// Checkbox toggle route
+document.querySelectorAll('#dayList input[type=checkbox]').forEach(cb => {
+  cb.addEventListener('change', e => {
+    const id = e.target.dataset.day;
+    if (!dayLayers[id]) return;
+    if (e.target.checked) dayLayers[id].addTo(map);
+    else map.removeLayer(dayLayers[id]);
+  });
+});
+
+// Zoom-to-day
+document.querySelectorAll('.day-zoom').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const id = btn.dataset.day;
+    const d = days.find(x => x.id === id);
+    if (!d || !d.path) return;
+
+    // ensure layer visible
+    const cb = document.querySelector(`input[data-day="${id}"]`);
+    if (cb && !cb.checked) { cb.checked = true; dayLayers[id].addTo(map); }
+
+    // highlight active card
+    document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
+    document.getElementById('card-' + id).classList.add('active');
+
+    map.fitBounds(L.latLngBounds(d.path).pad(0.15));
+  });
+});
+
+function toggleAllRoutes(show) {
+  document.querySelectorAll('#dayList input[type=checkbox]').forEach(cb => {
+    if (cb.disabled) return;
+    cb.checked = show;
+    const id = cb.dataset.day;
+    if (!dayLayers[id]) return;
+    if (show) dayLayers[id].addTo(map);
+    else map.removeLayer(dayLayers[id]);
+  });
+}
+
+function fitAll() {
+  const all = [];
+  days.forEach(d => { if (d.path) d.path.forEach(p => all.push(p)); });
+  hotels.forEach(h => all.push(h.coord));
+  document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
+  map.fitBounds(L.latLngBounds(all).pad(0.05));
+}
+
+// Initial: fit Teton + Yellowstone area (not Seattle or SLC)
+const tetonYnp = [];
+days.filter(d => d.path).forEach(d => d.path.forEach(p => tetonYnp.push(p)));
+map.fitBounds(L.latLngBounds(tetonYnp).pad(0.08));
+
+// Open Day 4 (Teton south) and Day 5 (Teton north) by default
+document.getElementById('card-d4').classList.add('open');
+document.getElementById('card-d5').classList.add('open');
+
+// Fix map size after layout shifts (mobile)
+setTimeout(() => map.invalidateSize(), 100);
+window.addEventListener('resize', () => map.invalidateSize());
+window.addEventListener('orientationchange', () => setTimeout(() => map.invalidateSize(), 300));
+</script>
+</body>
+</html>
